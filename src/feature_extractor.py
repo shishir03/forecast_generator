@@ -3,6 +3,10 @@ from pathlib import Path
 import xarray as xr
 import pandas as pd
 from IPython.display import display
+import matplotlib.pyplot as plt
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
+import numpy as np
 import boto3
 from botocore import UNSIGNED
 from botocore.config import Config
@@ -59,17 +63,44 @@ model_file = Path(model_filename)
 if not model_file.is_file():
     download_file(sample_date, sample_cycle, sample_hr)
 
-ds_500mb = xr.open_dataset(model_filename, engine="cfgrib", filter_by_keys={'typeOfLevel': 'isobaricInhPa', "level": 500, "shortName": "gh"})
-# ds_sfc = xr.open_dataset(model_filename, engine="cfgrib", filter_by_keys={'typeOfLevel': 'surface', "stepType": "instant"})
-ds_sfc = xr.open_dataset(model_filename, engine="cfgrib", filter_by_keys={"shortName": "prmsl"})
+# Try to encompass a good portion of the North Pacific / western North America
+lat_min, lat_max = 10, 60
+lon_min, lon_max = 180, 260
 
-variable_rows = []
-for variable in ds_sfc:
-    variable_rows.append({
-        "Variable": variable,
-        "Long Name": ds_sfc[variable].attrs["long_name"],
-        "Units": ds_sfc[variable].attrs["units"]
-    })
+def open_xr(filename, filter):
+    return xr.open_dataset(filename, engine="cfgrib", filter_by_keys=filter).sel(latitude=slice(lat_max, lat_min), longitude=slice(lon_min, lon_max))
 
-variable_df = pd.DataFrame(variable_rows)
-display(variable_df)
+ds_gph500 = open_xr(model_filename, {'typeOfLevel': 'isobaricInhPa', "level": 500, "shortName": "gh"})
+ds_sfc = open_xr(model_filename, {"typeOfLevel": "surface", "shortName": "t"})
+ds_mslp = open_xr(model_filename, {"shortName": "prmsl"})
+
+def plot_grib_field(ds, var_name, title=""):
+    fig, ax = plt.subplots(
+        figsize=(12, 8),
+        subplot_kw={'projection': ccrs.LambertConformal(central_longitude=-95)}
+    )
+
+    # Add map features
+    ax.add_feature(cfeature.COASTLINE, linewidth=0.8)
+    ax.add_feature(cfeature.BORDERS, linewidth=0.5)
+    ax.add_feature(cfeature.STATES, linewidth=0.3)
+
+    data = ds[var_name]
+    lats = ds['latitude'].values
+    lons = ds['longitude'].values
+
+    # Contour plot (good for height fields)
+    cf = ax.contourf(lons, lats, data, levels=20,
+                     transform=ccrs.PlateCarree(), cmap='RdYlBu_r')
+    cs = ax.contour(lons, lats, data, levels=20,
+                    transform=ccrs.PlateCarree(), colors='black', linewidths=0.5)
+    ax.clabel(cs, inline=True, fontsize=8, fmt='%d')
+
+    plt.colorbar(cf, ax=ax, orientation='horizontal', pad=0.05, label=var_name)
+    ax.set_title(title)
+    plt.tight_layout()
+    plt.show()
+
+# Usage
+plot_grib_field(ds_gph500, 'gh', title='500mb Geopotential Height')
+
