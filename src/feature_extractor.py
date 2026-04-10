@@ -1,15 +1,11 @@
 from pathlib import Path
 
 import xarray as xr
-import pandas as pd
-from IPython.display import display
-import matplotlib.pyplot as plt
-import cartopy.crs as ccrs
-import cartopy.feature as cfeature
-import numpy as np
 import boto3
 from botocore import UNSIGNED
 from botocore.config import Config
+
+import plotter
 
 s3 = boto3.client('s3', config=Config(signature_version=UNSIGNED))
 
@@ -74,33 +70,4 @@ ds_gph500 = open_xr(model_filename, {'typeOfLevel': 'isobaricInhPa', "level": 50
 ds_sfc = open_xr(model_filename, {"typeOfLevel": "surface", "shortName": "t"})
 ds_mslp = open_xr(model_filename, {"shortName": "prmsl"})
 
-def plot_grib_field(ds, var_name, title=""):
-    fig, ax = plt.subplots(
-        figsize=(12, 8),
-        subplot_kw={'projection': ccrs.LambertConformal(central_longitude=-95)}
-    )
-
-    # Add map features
-    ax.add_feature(cfeature.COASTLINE, linewidth=0.8)
-    ax.add_feature(cfeature.BORDERS, linewidth=0.5)
-    ax.add_feature(cfeature.STATES, linewidth=0.3)
-
-    data = ds[var_name]
-    lats = ds['latitude'].values
-    lons = ds['longitude'].values
-
-    # Contour plot (good for height fields)
-    cf = ax.contourf(lons, lats, data, levels=20,
-                     transform=ccrs.PlateCarree(), cmap='RdYlBu_r')
-    cs = ax.contour(lons, lats, data, levels=20,
-                    transform=ccrs.PlateCarree(), colors='black', linewidths=0.5)
-    ax.clabel(cs, inline=True, fontsize=8, fmt='%d')
-
-    plt.colorbar(cf, ax=ax, orientation='horizontal', pad=0.05, label=var_name)
-    ax.set_title(title)
-    plt.tight_layout()
-    plt.show()
-
-# Usage
-plot_grib_field(ds_gph500, 'gh', title='500mb Geopotential Height')
-
+plotter.plot_500mb_field(ds_gph500, 'gh', title='500mb Geopotential Height')
