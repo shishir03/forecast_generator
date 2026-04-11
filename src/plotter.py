@@ -43,14 +43,10 @@ def plot_z500_laplacian(ds_z500, z500_smoothed, laplacian):
         subplot_kw={'projection': ccrs.LambertConformal(central_longitude=-95)}
     )
 
-    # Add map features
     ax.add_feature(cfeature.COASTLINE, linewidth=0.8)
     ax.add_feature(cfeature.STATES, linewidth=0.4, edgecolor='gray')
     ax.add_feature(cfeature.BORDERS, linewidth=0.8)
 
-    # Filled contours for the Laplacian
-    # The values will be very small (units of m/degree^2 or similar)
-    # so you may need to scale - multiply by 1e5 or so to get readable numbers
     lap_scaled = laplacian * 1e5
 
     vmax = np.percentile(np.abs(lap_scaled), 95)  # robust color scale
@@ -63,12 +59,10 @@ def plot_z500_laplacian(ds_z500, z500_smoothed, laplacian):
         extend='both'
     )
 
-    # Overlay the raw 500mb height contours for reference - very useful
-    # for visually confirming troughs/ridges line up with the Laplacian
     z_vals = z500_smoothed.metpy.dequantify()
     cs = ax.contour(
         ds_z500['longitude'], ds_z500['latitude'], z_vals,
-        levels=np.arange(4800, 6000, 60),  # adjust range to your data
+        levels=np.arange(4800, 6000, 60),
         colors='black',
         linewidths=0.8,
         transform=ccrs.PlateCarree()
@@ -79,5 +73,35 @@ def plot_z500_laplacian(ds_z500, z500_smoothed, laplacian):
                 label='500mb Height Laplacian (×10⁻⁵)')
     ax.set_title('500mb Geopotential Height and Laplacian', fontsize=14)
 
+    plt.tight_layout()
+    plt.show()
+
+def plot_wind_vectors(wind_speeds, lats, lons, vectors):
+    _, ax = plt.subplots(
+        figsize=(12, 8),
+        subplot_kw={'projection': ccrs.LambertConformal(central_longitude=-95)}
+    )
+
+    ax.add_feature(cfeature.COASTLINE, linewidth=0.8)
+    ax.add_feature(cfeature.STATES, linewidth=0.4, edgecolor='gray')
+    ax.add_feature(cfeature.BORDERS, linewidth=0.8)
+
+    # Plot wind speed as background
+    cf = ax.contourf(lons, lats, wind_speeds,
+                    levels=np.arange(30, 90, 5),
+                    cmap='YlOrRd', transform=ccrs.PlateCarree())
+    plt.colorbar(cf, ax=ax, label='Wind Speed (m/s)')
+
+    # Plot vectors
+    vector_lats = np.array([v['lat'] for v in vectors])
+    vector_lons = np.array([v['lon'] for v in vectors])
+    vector_u = np.array([v['u'] for v in vectors])
+    vector_v = np.array([v['v'] for v in vectors])
+
+    ax.quiver(vector_lons, vector_lats, vector_u, vector_v,
+            transform=ccrs.PlateCarree(),
+            scale=1500, width=0.003, color='black')
+
+    ax.set_title('250mb Jet Stream Wind Vectors')
     plt.tight_layout()
     plt.show()
