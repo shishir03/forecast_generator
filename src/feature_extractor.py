@@ -50,8 +50,6 @@ ds_tsfc = open_xr({"typeOfLevel": "surface", "shortName": "t"}, grid=2)
 ds_cwat = open_xr({"shortName": "cwat"}, grid=2)
 ds_prate = open_xr({"shortName": "prate", "stepType": "avg"}, grid=2)
 
-# plotter.plot_contour_field(ds_wind250, title="250mb wind")
-# plotter.plot_contour_field(ds_mslp, var_name="prmsl", title="MSLP", cmap="RdBu_r")
 lat_min, lat_max, lon_min, lon_max = grid_sizes[0]
 z500_climo = xr.open_dataset(f"{MODEL_DIR}/hgt.mon.ltm.1991-2020.nc").sel(
     lat=slice(lat_max, lat_min), 
@@ -72,7 +70,7 @@ def get_z500_laplacian(ds_z500):
     z500 = xr.apply_ufunc(gaussian_filter, z500, kwargs={'sigma': 5}, dask='parallelized').metpy.quantify()
     laplacian = mpcalc.laplacian(z500, coordinates=(ds_z500_crs['latitude'], ds_z500_crs['longitude']))
     plotter.plot_z500_laplacian(ds_z500, z500, laplacian)
-    return laplacian
+    return z500, laplacian
 
 def get_sfc_features(ds_mslp, neighborhood_size=10, min_depth=2.0):
     """
@@ -154,6 +152,6 @@ def get_wind_vectors(ds_u, ds_v, jet_threshold=30, spacing_deg=5.0):
 lows, highs = get_sfc_features(ds_mslp)
 plotter.plot_contour_field(ds_mslp, var_name="prmsl", lows=lows, highs=highs, title="MSLP Plot", cmap="RdBu_r")
 
-''' ds_wind250 = mpcalc.wind_speed(ds_u250["u"].metpy.quantify(), ds_v250["v"].metpy.quantify())
-vectors = get_jet_path(ds_u250, ds_v250, spacing_deg=2.5)
-plotter.plot_wind_vectors(ds_wind250, ds_u250["latitude"].values, ds_v250["longitude"].values, vectors) '''
+# ds_wind250 = mpcalc.wind_speed(ds_u250["u"].metpy.quantify(), ds_v250["v"].metpy.quantify())
+# vectors = get_wind_vectors(ds_u250, ds_v250, spacing_deg=2.5)
+# plotter.plot_wind_vectors(ds_wind250, ds_u250["latitude"].values, ds_v250["longitude"].values, vectors)
