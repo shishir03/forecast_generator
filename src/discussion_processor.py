@@ -1,25 +1,46 @@
 import ollama
 
 def simplify_discussion(discussion_text):
+    extraction_response = ollama.chat(
+        model='llama3.1:8b-instruct-q4_K_M',
+        messages=[
+            {
+                'role': 'system',
+                'content': """Extract every meteorologically significant claim 
+                from the following forecast discussion as a bullet list. 
+                Quote directly from the text where possible, and do not add any 
+                information not present in the text. Only include the bullet list
+                in your response."""
+            },
+            {
+                'role': 'user',
+                'content': discussion_text
+            }
+        ]
+    )
+    extracted_claims = extraction_response['message']['content']
+    print(f"{extracted_claims}\n")
+
     response = ollama.chat(
         model='llama3.1:8b-instruct-q4_K_M',
         messages=[
             {
                 'role': 'system',
-                'content': """You are a meteorologist simplifying NWS forecast 
-                discussions for a general audience. Convert the technical discussion 
-                into plain language that a non-meteorologist can understand.
+                'content': """You are a meteorologist providing a weather forecast 
+                for a general audience. Translate the following meteorological claims into 
+                plain language for a general audience, providing a single summary for the 
+                entire forecast period. Do not add any information beyond what is listed.
                 
                 Your output must follow this exact format:
-                PATTERN: <1-2 sentences describing the large-scale weather pattern>
-                IMPACTS: <1-2 sentences describing what this means for local weather>
-                CONFIDENCE: <low/medium/high>
-                KEY_FEATURES: <comma-separated list of main synoptic features present>
+                PATTERN: 2-3 sentences describing the large-scale synoptic weather pattern
+                IMPACTS: 4-5 sentences describing what this means for local weather
+                CONFIDENCE: Low, medium, or high
                 """
             },
             {
                 'role': 'user',
-                'content': f"Simplify this forecast discussion:\n\n{discussion_text}"
+                'content': f"""Translate these claims:\n\n{extracted_claims}. 
+                Only include the simplified text in your response."""
             }
         ]
     )
