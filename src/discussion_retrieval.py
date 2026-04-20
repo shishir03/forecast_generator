@@ -23,7 +23,9 @@ def read_zip(start_date=start_date, end_date=end_date):
         response.raise_for_status()
         total = int(response.headers.get("content-length", 0))
 
-        with open(f"{DISCUSSION_DIR}/afdmtr-{start_date}-{end_date}.zip", "wb") as f, \
+        out_filename = Path(f"{DISCUSSION_DIR}/afdmtr-{start_date}-{end_date}.zip")
+        out_filename.parent.mkdir(exist_ok=True, parents=True)
+        with open(out_filename, "wb") as f, \
             tqdm(total=total, unit="B", unit_scale=True) as bar:
             for chunk in response.iter_content(chunk_size=8192):
                 f.write(chunk)

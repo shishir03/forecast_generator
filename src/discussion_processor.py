@@ -1,5 +1,6 @@
 import os
 import time
+from pathlib import Path
 
 import ollama
 
@@ -64,5 +65,8 @@ for filename in os.listdir(TRIMMED_DIR):
 
     simplified, time_taken = simplify_discussion(discussion)
     print(f"Processed discussion {filename} in {time_taken} seconds")
-    with open(f"{OUTPUT_DIR}/{filename}_s", "w") as out_file:
+
+    out_filename = Path(f"{OUTPUT_DIR}/{filename}_s")
+    out_filename.parent.mkdir(exist_ok=True, parents=True)
+    with open(out_filename, "w") as out_file:
         out_file.write(simplified)

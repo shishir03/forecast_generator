@@ -27,6 +27,8 @@ def download_file(forecast_date, forecast_cycle, forecast_hour, verbose=False):
         print("File already found")
         return
 
+    model_file.parent.mkdir(exist_ok=True, parents=True)
+    
     folder = f"gfs.{forecast_date}/{forecast_cycle}/{FORECAST_MODEL}/"
 
     try:
