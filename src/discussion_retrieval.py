@@ -40,7 +40,7 @@ def process_zip(start_date=start_date, end_date=end_date):
             date = fname.split("_")[1][:-4]
             with zf.open(fname) as f:
                 contents = f.read().decode("utf-8")
-                if not "...New SHORT TERM, LONG TERM..." in contents:
+                if not "...New SHORT TERM, LONG TERM" in contents:
                     # Not an updated discussion
                     continue
 
