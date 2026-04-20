@@ -55,14 +55,14 @@ def simplify_discussion(discussion_text):
 
     end = time.time()
     # print(f"Total time: {end - start}")
-    return response['message']['content'], end - start
+    return response['message']['content'], (end - start)
 
 for filename in os.listdir(TRIMMED_DIR):
+    print(f"Processing discussion {filename}")
     with open(f"{TRIMMED_DIR}/{filename}", "r") as f:
-        print(f"Processing discussion {filename}")
-        discussion, time_taken = f.read()
-        print(f"Processed discussion {filename} in {time_taken} seconds")
+        discussion = f.read()
 
-    simplified = simplify_discussion(discussion)
+    simplified, time_taken = simplify_discussion(discussion)
+    print(f"Processed discussion {filename} in {time_taken} seconds")
     with open(f"{OUTPUT_DIR}/{filename}_s", "w") as out_file:
         out_file.write(discussion)
