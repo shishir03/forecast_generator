@@ -73,35 +73,40 @@ def get_z500_laplacian(ds_z500):
     plotter.plot_z500_laplacian(ds_z500, z500, laplacian)
     return z500, laplacian
 
-def get_lows_highs(ds_pressure, var_name="mslp", neighborhood_size=10, min_depth=2.0, low_bound=1013, high_bound=1013):
+def get_lows_highs(ds_pressure, field=None, var_name="mslp", neighborhood_size=10, min_depth=2.0, low_bound=1013, high_bound=1013):
     """
     Determine high or low pressure centers from an MSLP field
     """
     lats = ds_pressure["latitude"].values
     lons = ds_pressure["longitude"].values
 
-    mslp_smooth = xr.apply_ufunc(gaussian_filter, ds_pressure["prmsl"], kwargs={"sigma": 3}, dask="parallelized")
-    mslp_smooth = mslp_smooth.values
-    lows = minimum_filter(mslp_smooth, size=neighborhood_size)
-    highs = maximum_filter(mslp_smooth, size=neighborhood_size)
+    if field is not None:
+        pressure_field = ds_pressure[field]
+    else:
+        pressure_field = ds_pressure
+
+    smoothed = xr.apply_ufunc(gaussian_filter, pressure_field, kwargs={"sigma": 3}, dask="parallelized")
+    smoothed = smoothed.values
+    lows = minimum_filter(smoothed, size=neighborhood_size)
+    highs = maximum_filter(smoothed, size=neighborhood_size)
     
-    lows_mask = ((mslp_smooth == lows) & (mslp_smooth < low_bound) & (mslp_smooth < highs - min_depth))
-    highs_mask = ((mslp_smooth == highs) & (mslp_smooth > high_bound) & (mslp_smooth > lows + min_depth))
+    lows_mask = ((smoothed == lows) & (smoothed < low_bound) & (smoothed < highs - min_depth))
+    highs_mask = ((smoothed == highs) & (smoothed > high_bound) & (smoothed > lows + min_depth))
 
     low_indices = np.argwhere(lows_mask)
     high_indices = np.argwhere(highs_mask)
 
-    lows = [{"lat": float(lats[i]), "lon": float(lons[j]), var_name: float(mslp_smooth[i, j])}
+    lows = [{"lat": float(lats[i]), "lon": float(lons[j]), var_name: float(smoothed[i, j])}
         for i, j in low_indices
     ]
 
-    highs = [{"lat": float(lats[i]), "lon": float(lons[j]), var_name: float(mslp_smooth[i, j])}
+    highs = [{"lat": float(lats[i]), "lon": float(lons[j]), var_name: float(smoothed[i, j])}
         for i, j in high_indices
     ]
 
     return lows, highs
 
-def get_wind_vectors(ds_u, ds_v, jet_threshold=30, spacing_deg=5.0, neighborhood_size=10, local_maxima=False):
+def get_wind_vectors(ds_u, ds_v, jet_threshold=30, spacing_deg=5.0, neighborhood_size=100, local_maxima=False):
     """
     Get spaced out wind vectors within the "core" of the jet (250mb winds above the given threshold)
     """
@@ -114,18 +119,20 @@ def get_wind_vectors(ds_u, ds_v, jet_threshold=30, spacing_deg=5.0, neighborhood
     lons = ds_u["longitude"].values
 
     if local_maxima:
-        mask = ds_wind250 >= jet_threshold
-        jet_masked = np.where(mask, ds_wind250, 0)
+        mask = ds_wind250 >= (jet_threshold * units("m/s"))
+        jet_masked = np.where(mask, ds_wind250.m, 0)
         local_max = maximum_filter(jet_masked, size=neighborhood_size)
-        points = np.argwhere((jet_masked == local_max) & mask)
+        points = np.argwhere((np.abs(jet_masked - local_max) < 1e-6) & mask)
     else:
         dlat = abs(lats[1] - lats[0])
         dlon = abs(lons[1] - lons[0])
         lat_stride = max(1, int(spacing_deg / dlat))
         lon_stride = max(1, int(spacing_deg / dlon))
 
-        points = [np.arange(0, len(lats), lat_stride), np.arange(0, len(lons), lon_stride)]
-        np.reshape(points, (len(lats), 2))
+        points = np.array(np.meshgrid(
+            np.arange(0, len(lats), lat_stride), 
+            np.arange(0, len(lons), lon_stride)
+        )).T.reshape(-1, 2)
 
     vectors = []
 
@@ -157,16 +164,16 @@ def get_wind_vectors(ds_u, ds_v, jet_threshold=30, spacing_deg=5.0, neighborhood
 
     return vectors
 
-lows, highs = get_lows_highs(ds_mslp)
-plotter.plot_contour_field(ds_mslp, var_name="prmsl", lows=lows, highs=highs, title="MSLP Plot", cmap="RdBu_r")
+# lows, highs = get_lows_highs(ds_mslp)
+# plotter.plot_contour_field(ds_mslp, var_name="prmsl", lows=lows, highs=highs, title="MSLP Plot", cmap="RdBu_r")
 
 # ds_wind250 = mpcalc.wind_speed(ds_u250["u"].metpy.quantify(), ds_v250["v"].metpy.quantify())
 # vectors = get_wind_vectors(ds_u250, ds_v250, spacing_deg=2.5)
 # plotter.plot_wind_vectors(ds_wind250, ds_u250["latitude"].values, ds_v250["longitude"].values, vectors)
-def features_to_text(ds_mslp, z500_anom, tempers, tempers_850mb, vectors_250mb, vectors_850mb):
+def features_to_text(ds_mslp, z500_anom, ds_u250, ds_v250):
     lines = []
     
-    lows, highs = get_lows_highs(ds_mslp)
+    lows, highs = get_lows_highs(ds_mslp, field="prmsl")
     troughs, ridges = get_lows_highs(z500_anom, var_name="anomaly", neighborhood_size=15, min_depth=20, low_bound=-50, high_bound=50)
 
     def output_features(features, feature_name, var_name, units):
@@ -186,13 +193,21 @@ def features_to_text(ds_mslp, z500_anom, tempers, tempers_850mb, vectors_250mb, 
     output_features(ridges, "500mb ridge", "anomaly", "m")
 
     # Jet streaks
+    vectors_250mb = get_wind_vectors(ds_u250, ds_v250, spacing_deg=2.5, local_maxima=True)
+    vectors_250mb.sort(key=lambda x: x["wspd"], reverse=True)
+
     if not vectors_250mb or len(vectors_250mb) == 0:
         lines.append("No significant jet stream activity")
     else:
-        for i, v in enumerate(vectors_250mb):
+        for i, v in enumerate(vectors_250mb[:10]):
+            north_south = "N" if v["lat"] >= 0 else "S"
+            adjusted_lon = v["lon"] % 180 - 180 * (v["lon"] // 180)
+            east_west = "E" if adjusted_lon >= 0 else "W"
             lines.append(
                 f"Jet streak {i+1}: {v["wspd"]:.0f} m/s {v["flow_label"]} flow "
-                f"at {v["lat"]:.1f}N, {v["lon"]:.1f}E"
+                f"at {(abs(v["lat"])):.1f}{north_south}, {(abs(adjusted_lon)):.1f}{east_west}"
             )
     
     return "\n".join(lines)
+
+print(features_to_text(ds_mslp, z500_anom, ds_u250, ds_v250))
