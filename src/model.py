@@ -1,4 +1,5 @@
 import os
+import sys
 from pathlib import Path
 
 from transformers import AutoModelForCausalLM, AutoTokenizer, TrainingArguments
@@ -79,6 +80,9 @@ if not Path(checkpoint_path).is_dir():
 
     trainer.train()
 
+if len(sys.argv) < 4:
+    print("Usage: model.py <date (YYYYMMDD)> <forecast cycle (00, 06, 12, 18)> <forecast hour (XX)>")
+
 model = PeftModel.from_pretrained(model, checkpoint_path)
 model.eval()
 
@@ -101,6 +105,9 @@ def generate_forecast_summary(feature_text, max_new_tokens=200, temperature=0.7)
     summary = full_output[len(prompt):]
     return summary.strip()
 
+date = sys.argv[1]
+cycle = sys.argv[2]
+hour = sys.argv[3]
 
-feature_text = features_to_text("20260410", "00", "006")
+feature_text = features_to_text(date, cycle, hour)
 print(generate_forecast_summary(feature_text))
