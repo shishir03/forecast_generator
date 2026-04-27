@@ -40,9 +40,9 @@ def process_zip(start_date=start_date, end_date=end_date):
     with zipfile.ZipFile(filename, "r") as zf:
         for fname in zf.namelist():
             date = fname.split("_")[1][:-4]
-            out_fname = f"{OUTPUT_DIR}/discussion_{date}"
+            out_fname = Path(f"{OUTPUT_DIR}/discussion_{date}")
 
-            if not Path(out_fname).is_file():
+            if not out_fname.is_file():
                 with zf.open(fname) as f:
                     contents = f.read().decode("utf-8")
                     if not "...New SHORT TERM, LONG TERM" in contents:
@@ -54,6 +54,7 @@ def process_zip(start_date=start_date, end_date=end_date):
                     long_term = sections[2].strip()
                     discussion = "\n\n".join([short_term, long_term])
 
+                out_fname.parent.mkdir(exist_ok=True, parents=True)
                 with open(out_fname, "w") as out_file:
                     out_file.write(discussion)
 

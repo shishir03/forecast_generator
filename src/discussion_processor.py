@@ -1,6 +1,7 @@
 import os
 import time
 import json
+import dotenv
 from pathlib import Path
 
 from transformers import pipeline
@@ -12,12 +13,18 @@ DISCUSSION_DIR = "discussions"
 TRIMMED_DIR = f"{DISCUSSION_DIR}/trimmed"
 OUTPUT_DIR = f"{DISCUSSION_DIR}/out"
 
+dotenv.load_dotenv()
+
 pipe = pipeline(
     "text-generation",
     model="meta-llama/Meta-Llama-3.1-8B-Instruct",
     device="mps",
-    torch_dtype=torch.float16
+    token=os.getenv("ACCESS_TOKEN"),
+    dtype=torch.float16
 )
+
+pipe.tokenizer.pad_token = pipe.tokenizer.eos_token
+pipe.tokenizer.padding_side = "left"
 
 def batch_extract(discussions, batch_size=4):
     discussion_texts = []
@@ -138,5 +145,5 @@ Translate these claims:
     return results
 
 if __name__ == "__main__":
-    process_zip("2025-07-01T00:00Z", "2026-04-25T23:59Z")
+    process_zip("2026-04-01T00:00Z", "2026-04-25T23:59Z")
     batch_simplify(os.listdir(TRIMMED_DIR))

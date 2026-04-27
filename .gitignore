@@ -3,3 +3,4 @@ discussions
 forecast_model/checkpoint*
 __pycache__
 venv
+.env
